@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyHomeBaku - Kredit Kalkulyatoru</title>
+    <title>MyHomeBaku</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f5f6fa;
+            background-color: #e6f3ff;
             margin: 0;
             padding: 20px;
             color: #34495e;
@@ -18,57 +18,64 @@
             background-color: #ffffff;
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 0 10px rgba(0, 0, 128, 0.1);
         }
         h1 {
             text-align: center;
-            color: #34495e;
+            color: #1e90ff;
         }
         label {
             display: block;
             margin: 10px 0 5px;
             font-weight: bold;
+            color: #4682b4;
         }
         input, select, button {
             width: 100%;
             padding: 10px;
             margin-bottom: 15px;
-            border: 1px solid #ccc;
+            border: 1px solid #add8e6;
             border-radius: 5px;
             box-sizing: border-box;
+            background-color: #f0f8ff;
         }
         button {
-            background-color: #34495e;
+            background-color: #4682b4;
             color: #ffffff;
             border: none;
             cursor: pointer;
             transition: background-color 0.3s;
         }
         button:hover {
-            background-color: #2c3e50;
+            background-color: #1e90ff;
         }
         .result {
             margin-top: 20px;
             padding: 10px;
-            background-color: #f5f6fa;
+            background-color: #e6f3ff;
             border-radius: 5px;
             display: none;
+            border: 1px solid #add8e6;
         }
-        .radio-group {
-            margin-bottom: 15px;
-        }
-        .radio-group label {
-            display: inline-block;
-            margin-right: 20px;
+        .error {
+            color: #ff4040;
+            font-size: 12px;
+            margin-top: -10px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>MyHomeBaku - Kredit Kalkulyatoru</h1>
+        <h1>MyHomeBaku</h1>
         <form id="creditForm">
             <label for="amount">Kredit məbləği (AZN):</label>
-            <input type="number" id="amount" required min="0">
+            <input type="number" id="amount" required min="1" max="10000">
+            <div class="error" id="amountError"></div>
+
+            <label for="initialPayment">İlkin ödəniş (AZN):</label>
+            <input type="number" id="initialPayment" required min="0">
+            <div class="error" id="initialPaymentError"></div>
 
             <label for="term">Kredit müddəti (ay):</label>
             <select id="term" required>
@@ -91,15 +98,13 @@
                 <option value="Kapital">Kapital</option>
             </select>
 
-            <div class="radio-group">
-                <label>İş statusu:</label>
-                <input type="radio" id="official" name="status" value="official" required>
-                <label for="official">Rəsmi</label>
-                <input type="radio" id="unofficial" name="status" value="unofficial">
-                <label for="unofficial">Qeyri-rəsmi</label>
-            </div>
+            <label for="status">İş statusu:</label>
+            <select id="status" required>
+                <option value="official">Rəsmi iş yeri</option>
+                <option value="unofficial">Qeyri-rəsmi iş yeri</option>
+            </select>
 
-            <button type="button" onclick="calculateCredit()">Hesabla</button>
+            <button type="button" id="calculateBtn">Hesabla</button>
             <button type="button" onclick="clearForm()">Təmizlə</button>
         </form>
 
@@ -113,47 +118,68 @@
 
     <script>
         const interestRates = {
-            official: {
-                2: 3.1,
-                3: 4.2,
-                6: 7.4,
-                12: 12.8,
-                18: 18.8,
-                24: 24.7,
-                35: 31
-            },
-            unofficial: {
-                2: 3.6,
-                3: 4.8,
-                6: 8.2,
-                12: 14.7,
-                18: 20.6,
-                24: 26,
-                35: 35.4
-            }
+            official: { 2: 0.031, 3: 0.042, 6: 0.074, 12: 0.128, 18: 0.188, 24: 0.247, 35: 0.31 },
+            unofficial: { 2: 0.036, 3: 0.048, 6: 0.082, 12: 0.147, 18: 0.206, 24: 0.26, 35: 0.354 }
         };
 
+        document.getElementById('calculateBtn').addEventListener('click', calculateCredit);
+
         function calculateCredit() {
-            const amount = parseFloat(document.getElementById('amount').value);
-            const term = parseInt(document.getElementById('term').value);
-            const status = document.querySelector('input[name="status"]:checked').value;
+            const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+            const initialPayment = parseFloat(document.getElementById('initialPayment').value) || 0;
+            const term = parseInt(document.getElementById('term').value) || 0;
+            const status = document.getElementById('status').value;
+            const seller = document.getElementById('seller').value;
 
+            // Səhvləri təmizlə
+            document.getElementById('amountError').textContent = '';
+            document.getElementById('initialPaymentError').textContent = '';
+
+            // Validasiya
+            if (totalAmount === 0 || isNaN(totalAmount)) {
+                document.getElementById('amountError').textContent = 'Məbləğ daxil edin!';
+                return;
+            }
+            if (totalAmount < 1 || totalAmount > 10000) {
+                document.getElementById('amountError').textContent = 'Məbləğ 1-10000 AZN olmalıdır!';
+                return;
+            }
+            if (initialPayment < 0) {
+                document.getElementById('initialPaymentError').textContent = 'İlkin ödəniş mənfi ola bilməz!';
+                return;
+            }
+            if (initialPayment > totalAmount) {
+                document.getElementById('initialPaymentError').textContent = 'İlkin ödəniş ümumi məbləğdən çox ola bilməz!';
+                return;
+            }
+            if (term === 0 || isNaN(term)) {
+                document.getElementById('amountError').textContent = 'Müddət seçin!';
+                return;
+            }
+
+            const remainingAmount = totalAmount - initialPayment;
+            const serviceFee = 0; // Həsrət üçün xidmət haqqı 0 olaraq təyin edilib
+            const amountWithFee = remainingAmount + serviceFee;
             const interestRate = interestRates[status][term];
-            const monthlyRate = interestRate / 100 / 12;
-            const monthlyPayment = (amount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -term));
-            const totalPayment = monthlyPayment * term;
-            const interestAmount = totalPayment - amount;
+            const totalInterest = amountWithFee * interestRate;
+            const totalPayment = amountWithFee + totalInterest;
+            const monthlyPayment = totalPayment / term;
+            const interestAmount = totalInterest;
 
+            // Nəticələri göstər
             document.getElementById('monthlyPayment').textContent = monthlyPayment.toFixed(2);
             document.getElementById('totalPayment').textContent = totalPayment.toFixed(2);
             document.getElementById('interestAmount').textContent = interestAmount.toFixed(2);
-
             document.getElementById('result').style.display = 'block';
+
+            console.log('Hesablama:', { totalAmount, initialPayment, term, status, seller, monthlyPayment, totalPayment, interestAmount });
         }
 
         function clearForm() {
             document.getElementById('creditForm').reset();
             document.getElementById('result').style.display = 'none';
+            document.getElementById('amountError').textContent = '';
+            document.getElementById('initialPaymentError').textContent = '';
         }
     </script>
 </body>
